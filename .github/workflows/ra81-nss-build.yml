@@ -27,12 +27,21 @@ jobs:
             gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
             python3 python3-setuptools python3-pip rsync swig unzip wget \
             zlib1g-dev file ccache libelf-dev \
-            autoconf automake autopoint libtool pkg-config
-          # libnftnl-1.3.2 触发 maintainer mode 时硬编码调用 automake-1.17,
-          # Ubuntu 22.04 只带 1.16 -> command not found (Error 127)。做版本别名兜底。
-          sudo ln -sf "$(command -v automake)" /usr/local/bin/automake-1.17
-          sudo ln -sf "$(command -v aclocal)" /usr/local/bin/aclocal-1.17
-          automake-1.17 --version | head -1
+            autoconf automake autopoint libtool pkg-config perl
+          # libnftnl-1.3.2 的 configure.ac 由 Automake 1.17 生成，Ubuntu 22.04
+          # 自带 1.16.5，触发 maintainer mode 时报 version mismatch (Error 63)。
+          # 从源码编译安装真正的 1.17（纯脚本，约 1 分钟），覆盖系统旧版。
+          cd /tmp
+          wget -q https://ftp.gnu.org/gnu/automake/automake-1.17.tar.xz
+          tar xf automake-1.17.tar.xz
+          cd automake-1.17
+          ./configure --prefix=/usr/local
+          make -j$(nproc)
+          sudo make install
+          hash -r
+          echo "automake:      $(automake --version | head -1)"
+          echo "automake-1.17: $(automake-1.17 --version | head -1)"
+          echo "aclocal-1.17:  $(aclocal-1.17 --version | head -1)"
 
       - name: Clone NSS source (Cathgao custom branch)
         run: |
@@ -107,8 +116,8 @@ jobs:
           cd openwrt
           make defconfig
           make -j$(nproc) download || make -j1 download
-          # 双保险：提前解压 libnftnl 并刷新生成物时间戳，避免触发 automake 重新生成。
-          # 若触发，上面的 automake-1.17 别名也能兜底。
+          # 源码解压后才 touch 生成物时间戳，避免触发 maintainer mode 重新生成。
+          # 真 automake 1.17 已在依赖步骤装好，即便触发也能正确重生成。
           if [ -d build_dir/target-aarch64_cortex-a53_musl/libnftnl-1.3.2 ]; then
             find build_dir/target-aarch64_cortex-a53_musl/libnftnl-1.3.2 \
               \( -name 'Makefile.in' -o -name 'configure' -o -name 'aclocal.m4' \) -exec touch {} +
