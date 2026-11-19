@@ -26,7 +26,13 @@ jobs:
           sudo apt install -y build-essential clang flex bison gawk g++ \
             gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
             python3 python3-setuptools python3-pip rsync swig unzip wget \
-            zlib1g-dev file ccache libelf-dev
+            zlib1g-dev file ccache libelf-dev \
+            autoconf automake autopoint libtool pkg-config
+          # libnftnl-1.3.2 触发 maintainer mode 时硬编码调用 automake-1.17,
+          # Ubuntu 22.04 只带 1.16 -> command not found (Error 127)。做版本别名兜底。
+          sudo ln -sf "$(command -v automake)" /usr/local/bin/automake-1.17
+          sudo ln -sf "$(command -v aclocal)" /usr/local/bin/aclocal-1.17
+          automake-1.17 --version | head -1
 
       - name: Clone NSS source (Cathgao custom branch)
         run: |
@@ -101,6 +107,12 @@ jobs:
           cd openwrt
           make defconfig
           make -j$(nproc) download || make -j1 download
+          # 双保险：提前解压 libnftnl 并刷新生成物时间戳，避免触发 automake 重新生成。
+          # 若触发，上面的 automake-1.17 别名也能兜底。
+          if [ -d build_dir/target-aarch64_cortex-a53_musl/libnftnl-1.3.2 ]; then
+            find build_dir/target-aarch64_cortex-a53_musl/libnftnl-1.3.2 \
+              \( -name 'Makefile.in' -o -name 'configure' -o -name 'aclocal.m4' \) -exec touch {} +
+          fi
           make -j$(nproc) || make -j1 V=s
           echo "======================="
           echo "Space usage:"
