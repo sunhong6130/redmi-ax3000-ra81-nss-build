@@ -135,6 +135,7 @@ jobs:
           ls -lh bin/targets/qualcommax/ipq50xx/
           echo "===== 校验 ====="
           ls bin/targets/qualcommax/ipq50xx/*xiaomi_cr8806*squashfs-sysupgrade.bin
+          ls bin/targets/qualcommax/ipq50xx/*xiaomi_cr8806*squashfs-factory.ubi
           if ls bin/targets/qualcommax/ipq50xx/ | grep -q ubootmod; then
             echo "ERROR: 出现了 ubootmod(大分区)镜像，profile 选错了！" && exit 1
           fi
@@ -144,6 +145,8 @@ jobs:
         with:
           name: ra81-nss-xiaomi-cr8806-run${{ github.run_number }}
           path: |
+            openwrt/bin/targets/qualcommax/ipq50xx/*xiaomi_cr8806*squashfs-factory.ubi
             openwrt/bin/targets/qualcommax/ipq50xx/*xiaomi_cr8806*squashfs-sysupgrade.bin
+            openwrt/bin/targets/qualcommax/ipq50xx/*xiaomi_cr8806*initramfs-uImage.itb
             openwrt/bin/targets/qualcommax/ipq50xx/sha256sums
           if-no-files-found: error
